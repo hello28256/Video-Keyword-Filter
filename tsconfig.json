@@ -1,0 +1,24 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "paths": {
+      "#core/*": ["./core/*"],
+      "#utils/*": ["./utils/*"],
+      "#types/*": ["./types/*"]
+    }
+  },
+  "include": [
+    "core/**/*",
+    "utils/**/*",
+    "types/**/*",
+    "entrypoints/**/*",
+    "tests/**/*",
+    "wxt.config.ts",
+    "shims-vue.d.ts",
+    ".wxt/wxt.d.ts"
+  ]
+}

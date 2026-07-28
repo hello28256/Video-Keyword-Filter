@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>B 站首页 fixture</title>
+</head>
+<body>
+  <div class="feed-roll">
+    <!-- 卡片 1：含 data-bvid，符合预期结构 -->
+    <div class="bili-video-card" data-aid="1" data-bvid="BV1xx1" data-up-name="测试UP主A">
+      <a class="bili-video-card__info--tit" href="//www.bilibili.com/video/BV1xx1" title="一期普通的视频">一期普通的视频</a>
+      <a class="bili-video-card__info--author">测试UP主A</a>
+    </div>
+
+    <!-- 卡片 2：标题含"剧透"，应被命中 -->
+    <div class="bili-video-card" data-aid="2" data-bvid="BV1xx2" data-up-name="另一UP">
+      <a class="bili-video-card__info--tit" href="//www.bilibili.com/video/BV1xx2" title="【剧透预警】结局分析">【剧透预警】结局分析</a>
+      <a class="bili-video-card__info--author">另一UP</a>
+    </div>
+
+    <!-- 卡片 3：白名单 UP 主，标题含"剧透"但应放行 -->
+    <div class="bili-video-card" data-aid="3" data-bvid="BV1xx3" data-up-name="我的最爱">
+      <a class="bili-video-card__info--tit" href="//www.bilibili.com/video/BV1xx3" title="深度剧透解析">深度剧透解析</a>
+      <a class="bili-video-card__info--author">我的最爱</a>
+    </div>
+  </div>
+
+  <!-- 推荐列表外的元素，不应被识别为卡片 -->
+  <footer>
+    <a class="bili-video-card__info--tit" title="这是 footer 里的链接，不是卡片">footer link</a>
+  </footer>
+</body>
+</html>
