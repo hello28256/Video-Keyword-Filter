@@ -27,7 +27,6 @@ export function createScanner(opts: ScannerOptions): Scanner {
   const processed = new WeakSet<Element>();
   const hiddenElements = new Set<Element>();
 
-  let firstSeenLogged = false;
   function processElement(el: Element, config: FilterConfig, isRescan = false): void {
     if (!isRescan && processed.has(el)) return;
     const card = opts.adapter.extractCard(el);
@@ -36,51 +35,26 @@ export function createScanner(opts: ScannerOptions): Scanner {
     }
     processed.add(el);
 
-    // DEBUG: 永远打印 (WeakSet 去重), 让我们看到所有 36 张卡的 author
-    if (!(el as Element & { __vkfLogged?: boolean }).__vkfLogged) {
-      (el as Element & { __vkfLogged?: boolean }).__vkfLogged = true;
-      console.log('[VKF] 📋', {
-        title: card.title.slice(0, 30),
-        author: card.author,
-      });
-    }
-
     const decision = decide({ title: card.title, author: card.author, site: opts.adapter.id }, config);
     el.setAttribute('data-vkf-reason', decision.reason);
     el.setAttribute('data-vkf-author', card.author ?? '');
     el.setAttribute('data-vkf-title', card.title.slice(0, 100));
 
-    // DEBUG: 强制打印每张卡片的 author（无论是否命中黑名单）
-    if (card.title.includes('徐') || card.title.includes('腾格里') || card.title.includes('大沙漠') || (card.author ?? '').includes('徐')) {
-      console.log(
-        '[VKF] 🎯 疑似徐云/腾格里卡',
-        `reason=${decision.reason}`,
-        `title="${card.title.slice(0, 40)}"`,
-        `author="${card.author}"`,
-        `blacklist=${JSON.stringify(config.blacklist)}`,
-      );
+    if (decision.hide) {
+      opts.adapter.applyHidden(el);
+      hiddenElements.add(el);
+      opts.onHide?.(card);
+    } else if (hiddenElements.has(el)) {
+      opts.adapter.removeHidden(el);
+      hiddenElements.delete(el);
     }
   }
 
-  let scanCount = 0;
   return {
     scanAll(root: ParentNode = document) {
       try {
         const config = opts.getConfig();
         const cards = opts.adapter.findCards(root);
-        scanCount++;
-        // WHY: 调试 —— 第一次扫描打印所有卡片的 class + 是否有徐云
-        if (scanCount === 1) {
-          const classes = new Set<string>();
-          let hasXuyun = false;
-          for (const c of cards) {
-            classes.add(c.tagName + '.' + (c.className?.toString?.() ?? '').slice(0, 50));
-            if (c.textContent.includes('徐云')) hasXuyun = true;
-          }
-          console.log('[VKF] scanAll #1 卡片 class 集合:', Array.from(classes).slice(0, 10));
-          console.log('[VKF] scanAll #1 含徐云?', hasXuyun);
-        }
-        console.log('[VKF] scanAll: 找到', cards.length, '张卡片');
         for (const el of cards) {
           processElement(el, config);
         }
@@ -95,7 +69,6 @@ export function createScanner(opts: ScannerOptions): Scanner {
       try {
         const config = opts.getConfig();
         const all = opts.adapter.findCards(document);
-        console.log('[VKF] rescanAll: 找到', all.length, '张卡片');
         for (const el of all) {
           processElement(el, config, true);
         }

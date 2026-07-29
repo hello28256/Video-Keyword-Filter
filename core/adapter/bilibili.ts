@@ -14,12 +14,12 @@
 import type { SiteAdapter, VideoCard } from './types';
 
 // 匹配"最外层卡片"的 selector。
-// WHY: 排除 `bili-video-card__info` / `bili-video-card__info--owner` 等 BEM 子元素 ——
-//      它们都含 "video-card" 字符串，但只是卡片内部子节点。
-//      用 class 完整词匹配 + 必须含 a[href*="/video/"] 双重过滤。
-// B 站搜索结果可能用多种容器: div.video-card (BEM 无 __), li.video-item, div.video-item, div.b-img...
+// WHY: B 站搜索结果卡片用 `class="bili-video-card__info--right"` (BEM 子类) 之类, 不用
+//      `:not([class*="__"])` 排他 (会漏搜索页所有真实卡), 改用校验卡片"必须含 a[title]
+//      且 a[href*="/video/"]" 双重过滤。BEM 子元素如 __info--author 通常不含 a[title],
+//      自然被过滤。
 const CARD_CONTAINER_SELECTOR = [
-  'div[class*="bili-video-card"]:not([class*="__"])',
+  'div[class*="bili-video-card"]',
   'li[class*="video-item"]',
   'div[class*="video-item"]',
   'div[class*="b_img"]',
@@ -97,17 +97,26 @@ export const bilibiliAdapter: SiteAdapter = {
   },
 
   findCards(root: ParentNode): Element[] {
-    // WHY: 搜索页和首页的卡片根都是 div.video-card (BEM 不带 __ 子元素) 或 li.video-item。
-    //      直接用容器 selector 抓，不会误抓卡片内部子节点。
-    const cards = Array.from(root.querySelectorAll(CARD_CONTAINER_SELECTOR));
-    // 去重 + 校验必须是真正的卡片（内部有 video 链接）
+    // WHY: B 站搜索页真实卡片用 BEM 子类 (如 bili-video-card__info--right).
+    //      策略: 抓所有"含 a[title] 的元素", 向上找最近的"卡片容器".
+    //      排除 body (页面级容器, 不是卡片) + html/document (更外层).
+    const allWithTitle = Array.from(root.querySelectorAll('a[title]'));
     const seen = new Set<Element>();
     const result: Element[] = [];
-    for (const card of cards) {
-      if (seen.has(card)) continue;
-      seen.add(card);
-      if (!card.querySelector('a[href*="/video/"]')) continue;
-      result.push(card);
+    for (const a of allWithTitle) {
+      let cardEl: Element | null = a.parentElement;
+      let foundContainer: Element | null = null;
+      while (cardEl && cardEl !== root && cardEl.tagName !== 'BODY') {
+        if (cardEl.querySelector('a[href*="/video/"]') && cardEl.querySelector('a[title]')) {
+          foundContainer = cardEl;
+          break;
+        }
+        cardEl = cardEl.parentElement;
+      }
+      if (!foundContainer) continue;
+      if (seen.has(foundContainer)) continue;
+      seen.add(foundContainer);
+      result.push(foundContainer);
     }
     return result;
   },
