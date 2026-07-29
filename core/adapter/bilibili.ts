@@ -17,7 +17,13 @@ import type { SiteAdapter, VideoCard } from './types';
 // WHY: 排除 `bili-video-card__info` / `bili-video-card__info--owner` 等 BEM 子元素 ——
 //      它们都含 "video-card" 字符串，但只是卡片内部子节点。
 //      用 class 完整词匹配 + 必须含 a[href*="/video/"] 双重过滤。
-const CARD_CONTAINER_SELECTOR = 'div[class*="video-card"]:not([class*="__"]), li[class*="video-item"]';
+// B 站搜索结果可能用多种容器: div.video-card (BEM 无 __), li.video-item, div.video-item, div.b-img...
+const CARD_CONTAINER_SELECTOR = [
+  'div[class*="bili-video-card"]:not([class*="__"])',
+  'li[class*="video-item"]',
+  'div[class*="video-item"]',
+  'div[class*="b_img"]',
+].join(', ');
 
 function findTitleEl(card: Element): Element | null {
   // WHY: 优先用 a[title]，避免被 CSS text-overflow 截断的 innerText 漏命中。
