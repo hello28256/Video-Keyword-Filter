@@ -41,7 +41,7 @@ export function createScanner(opts: ScannerOptions): Scanner {
     el.setAttribute('data-vkf-title', card.title.slice(0, 100));
 
     // DEBUG: 强制打印每张卡片的 author（无论是否命中黑名单）
-    if (card.title.includes('徐云') || card.title.includes('腾格里') || card.title.includes('大沙漠')) {
+    if (card.title.includes('徐') || card.title.includes('腾格里') || card.title.includes('大沙漠') || (card.author ?? '').includes('徐')) {
       console.log(
         '[VKF] 🎯 疑似徐云/腾格里卡',
         `reason=${decision.reason}`,
