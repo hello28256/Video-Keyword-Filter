@@ -31,15 +31,6 @@ export function createScanner(opts: ScannerOptions): Scanner {
     if (!isRescan && processed.has(el)) return;
     const card = opts.adapter.extractCard(el);
     if (!card) {
-      // WHY: 调试 —— 每次都打印，方便定位哪些卡片没抽到
-      const cls = el.className?.toString?.() ?? '';
-      console.log('[VKF] ⚠️ extractCard 返回 null', {
-        tag: el.tagName,
-        class: cls.slice(0, 80),
-        hasTitle: !!el.querySelector('a[title]'),
-        hasVideoLink: !!el.querySelector('a[href*="/video/"]'),
-        sampleText: el.textContent?.trim()?.slice(0, 50),
-      });
       return;
     }
     processed.add(el);
@@ -49,26 +40,14 @@ export function createScanner(opts: ScannerOptions): Scanner {
     el.setAttribute('data-vkf-author', card.author ?? '');
     el.setAttribute('data-vkf-title', card.title.slice(0, 100));
 
-    if (decision.hide) {
+    // DEBUG: 强制打印每张卡片的 author（无论是否命中黑名单）
+    if (card.title.includes('徐云') || card.title.includes('腾格里') || card.title.includes('大沙漠')) {
       console.log(
-        '[VKF] 🔥 HIDE',
+        '[VKF] 🎯 疑似徐云/腾格里卡',
         `reason=${decision.reason}`,
-        `title="${card.title.slice(0, 30)}"`,
+        `title="${card.title.slice(0, 40)}"`,
         `author="${card.author}"`,
-      );
-      opts.adapter.applyHidden(el);
-      hiddenElements.add(el);
-      opts.onHide?.(card);
-    } else if (hiddenElements.has(el)) {
-      console.log('[VKF] 👀 UNHIDE', `author="${card.author}"`);
-      opts.adapter.removeHidden(el);
-      hiddenElements.delete(el);
-    } else if (card.author?.includes('徐云') || card.title.includes('徐云')) {
-      console.log(
-        '[VKF] ⚠️ 徐云相关但没隐藏',
-        `reason=${decision.reason}`,
-        `title="${card.title.slice(0, 30)}"`,
-        `author="${card.author}"`,
+        `blacklist=${JSON.stringify(config.blacklist)}`,
       );
     }
   }
