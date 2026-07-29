@@ -36,13 +36,17 @@ export function createScanner(opts: ScannerOptions): Scanner {
     }
     processed.add(el);
 
-    // DEBUG: 永远打印每张卡片的 author (去重, 一张卡只打一次)
-    if (!(el as Element & { __vkfLogged?: boolean }).__vkfLogged) {
-      (el as Element & { __vkfLogged?: boolean }).__vkfLogged = true;
-      console.log('[VKF] 📋 CARD', {
-        title: card.title.slice(0, 40),
-        author: card.author,
-        class: el.className?.toString?.()?.slice(0, 40),
+    // DEBUG: 一旦 author 或 title 含"徐云"或"腾格里", 完整 dump
+    const titleStr = card.title;
+    const authorStr = card.author ?? '';
+    if (titleStr.includes('徐') || titleStr.includes('腾格里') || authorStr.includes('徐') || authorStr.includes('流浪')) {
+      console.log('[VKF] 🎯 命中', {
+        title: titleStr.slice(0, 50),
+        author: authorStr,
+        authorCharCodes: Array.from(authorStr).slice(0, 12).map((c) => `${c.charCodeAt(0)}`).join(','),
+        authorLength: authorStr.length,
+        decision: decide({ title: titleStr, author: authorStr, site: opts.adapter.id }, config),
+        blacklist: config.blacklist,
       });
     }
 
