@@ -27,28 +27,19 @@ export function createScanner(opts: ScannerOptions): Scanner {
   const processed = new WeakSet<Element>();
   const hiddenElements = new Set<Element>();
 
-  // WHY: 调试用 —— 对每个不同的 class 组合只打一次"extractCard 失败"日志（避免 37 个相同 class 把控制台刷爆）
-  const reportedFailClasses = new Set<string>();
-  let failLogCount = 0;
-
   function processElement(el: Element, config: FilterConfig, isRescan = false): void {
     if (!isRescan && processed.has(el)) return;
     const card = opts.adapter.extractCard(el);
     if (!card) {
+      // WHY: 调试 —— 每次都打印，方便定位哪些卡片没抽到
       const cls = el.className?.toString?.() ?? '';
-      const sig = `${el.tagName}.${cls}`.slice(0, 100);
-      if (!reportedFailClasses.has(sig) && failLogCount < 10) {
-        reportedFailClasses.add(sig);
-        failLogCount++;
-        console.log('[VKF] ⚠️ extractCard 返回 null（不是真实卡片）', {
-          sig,
-          tag: el.tagName,
-          class: cls.slice(0, 80),
-          hasTitle: !!el.querySelector('a[title]'),
-          hasVideoLink: !!el.querySelector('a[href*="/video/"]'),
-          sampleText: el.textContent?.trim()?.slice(0, 50),
-        });
-      }
+      console.log('[VKF] ⚠️ extractCard 返回 null', {
+        tag: el.tagName,
+        class: cls.slice(0, 80),
+        hasTitle: !!el.querySelector('a[title]'),
+        hasVideoLink: !!el.querySelector('a[href*="/video/"]'),
+        sampleText: el.textContent?.trim()?.slice(0, 50),
+      });
       return;
     }
     processed.add(el);
