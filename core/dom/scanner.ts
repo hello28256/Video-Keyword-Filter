@@ -36,17 +36,12 @@ export function createScanner(opts: ScannerOptions): Scanner {
     }
     processed.add(el);
 
-    // DEBUG: 一旦 author 或 title 含"徐云"或"腾格里", 完整 dump
-    const titleStr = card.title;
-    const authorStr = card.author ?? '';
-    if (titleStr.includes('徐') || titleStr.includes('腾格里') || authorStr.includes('徐') || authorStr.includes('流浪')) {
-      console.log('[VKF] 🎯 命中', {
-        title: titleStr.slice(0, 50),
-        author: authorStr,
-        authorCharCodes: Array.from(authorStr).slice(0, 12).map((c) => `${c.charCodeAt(0)}`).join(','),
-        authorLength: authorStr.length,
-        decision: decide({ title: titleStr, author: authorStr, site: opts.adapter.id }, config),
-        blacklist: config.blacklist,
+    // DEBUG: 永远打印 (WeakSet 去重), 让我们看到所有 36 张卡的 author
+    if (!(el as Element & { __vkfLogged?: boolean }).__vkfLogged) {
+      (el as Element & { __vkfLogged?: boolean }).__vkfLogged = true;
+      console.log('[VKF] 📋', {
+        title: card.title.slice(0, 30),
+        author: card.author,
       });
     }
 
