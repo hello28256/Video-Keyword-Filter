@@ -35,6 +35,8 @@ export function createScanner(opts: ScannerOptions): Scanner {
     processed.add(el);
 
     const decision = decide({ title: card.title, author: card.author, site: opts.adapter.id }, config);
+    // WHY: 调试辅助 —— 把决策 reason 写到 data 属性，DevTools 里能直接看到每张卡为啥隐藏/不隐藏。
+    el.setAttribute('data-vkf-reason', decision.reason);
     if (decision.hide) {
       opts.adapter.applyHidden(el);
       hiddenElements.add(el);
