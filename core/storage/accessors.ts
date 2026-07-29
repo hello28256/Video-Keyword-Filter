@@ -55,10 +55,10 @@ export function watchConfig(cb: (newConfig: FilterConfig) => void): () => void {
  */
 export async function incrementStats(site: SiteId): Promise<void> {
   try {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = new Date().toISOString().slice(0, 10);
     const current = await items.stats.getValue();
-    if (current.date !== today) {
-      // WHY: 跨天时重置统计，避免历史堆积。
+    if (!current || current.date !== today) {
+      // WHY: 跨天或首次写入时重置统计，避免历史堆积。
       await items.stats.setValue({
         date: today,
         perSite: { bilibili: 0, douyin: 0, youtube: 0, [site]: 1 },
