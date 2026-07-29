@@ -21,6 +21,11 @@ export interface FilterConfig {
   enabled: boolean;
   keywords: string[];
   whitelist: WhitelistEntry[];
+  /**
+   * 黑名单：按 UP 主名精确匹配，命中即隐藏（独立判断，不依赖关键词）。
+   * 与 whitelist 共用 WhitelistEntry 类型，匹配逻辑在 core/matcher/whitelist.ts 统一。
+   */
+  blacklist: WhitelistEntry[];
   matcherOptions: MatcherOptions;
   siteEnabled: Record<SiteId, boolean>;
 }

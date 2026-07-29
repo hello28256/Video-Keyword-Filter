@@ -6,6 +6,7 @@ const baseConfig: FilterConfig = {
   enabled: true,
   keywords: ['测评', '广告'],
   whitelist: [],
+  blacklist: [],
   matcherOptions: { caseSensitive: false, trimWhitespace: true },
   siteEnabled: { bilibili: true, douyin: true, youtube: true },
 };
@@ -80,5 +81,74 @@ describe('decide', () => {
       { ...baseConfig, keywords: ['review'], matcherOptions: { caseSensitive: true, trimWhitespace: true } },
     );
     expect(result).toEqual({ hide: false, reason: 'no-match' });
+  });
+});
+
+describe('decide - 黑名单', () => {
+  const baseWithBlacklist: FilterConfig = {
+    ...baseConfig,
+    blacklist: [{ value: '某搬运号', scope: 'all' }],
+  };
+
+  it('黑名单命中 UP 主 → 独立判断，无视标题是否命中关键词', () => {
+    const result = decide(
+      { title: '一期普通的视频', author: '某搬运号', site: 'bilibili' },
+      baseWithBlacklist,
+    );
+    expect(result).toEqual({ hide: true, reason: 'blacklist' });
+  });
+
+  it('黑名单命中时也无视 enabled/siteEnabled 之外的所有规则', () => {
+    // 即便标题也命中关键词，仍返回 'blacklist' reason（黑名单优先于关键词）
+    const result = decide(
+      { title: '【剧透】结局分析', author: '某搬运号', site: 'bilibili' },
+      baseWithBlacklist,
+    );
+    expect(result).toEqual({ hide: true, reason: 'blacklist' });
+  });
+
+  it('黑名单优先于白名单（同一 UP 同时在两名单 → 仍隐藏）', () => {
+    const result = decide(
+      { title: '一期普通视频', author: '某搬运号', site: 'bilibili' },
+      {
+        ...baseWithBlacklist,
+        whitelist: [{ value: '某搬运号', scope: 'all' }],
+      },
+    );
+    expect(result).toEqual({ hide: true, reason: 'blacklist' });
+  });
+
+  it('白名单命中但不在黑名单 → 放行', () => {
+    const result = decide(
+      { title: '【剧透】深度解析', author: '我的最爱', site: 'bilibili' },
+      {
+        ...baseWithBlacklist,
+        whitelist: [{ value: '我的最爱', scope: 'all' }],
+      },
+    );
+    expect(result).toEqual({ hide: false, reason: 'whitelist' });
+  });
+
+  it('黑名单 scope 限定：scope=bilibili 时 youtube 站点不命中', () => {
+    const result = decide(
+      { title: '一期普通视频', author: '某UP', site: 'youtube' },
+      {
+        ...baseConfig,
+        blacklist: [{ value: '某UP', scope: 'bilibili' }],
+      },
+    );
+    expect(result).toEqual({ hide: false, reason: 'no-match' });
+  });
+
+  it('空黑名单不改变原有行为（仅白名单生效）', () => {
+    const result = decide(
+      { title: '一期普通视频', author: '某UP', site: 'bilibili' },
+      {
+        ...baseConfig,
+        blacklist: [],
+        whitelist: [{ value: '某UP', scope: 'all' }],
+      },
+    );
+    expect(result).toEqual({ hide: false, reason: 'whitelist' });
   });
 });

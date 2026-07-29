@@ -16,8 +16,17 @@ export const configItem = storage.defineItem<FilterConfig>('local:config', {
   //      onMigration 钩子在每次读取时跑一次，把入参归一到合法 schema。
   init: () => DEFAULT_CONFIG,
   migrations: {
-    // 单版本号 entry；后续 schema 变化时新增 entries。
+    // v1: 老数据兜底（最早 schema）。
     1: (raw: unknown) => migrateConfig(raw),
+    // WHY: v2 给老 config 补 blacklist 字段。已含 blacklist 的不覆盖（保持用户已有数据）。
+    2: (raw: unknown) => {
+      const cfg = migrateConfig(raw);
+      const rawBlacklist = (raw as { blacklist?: unknown } | null)?.blacklist;
+      return {
+        ...cfg,
+        blacklist: Array.isArray(rawBlacklist) ? cfg.blacklist : cfg.blacklist,
+      };
+    },
   },
   version: SCHEMA_VERSION,
 });

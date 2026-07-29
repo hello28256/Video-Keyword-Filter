@@ -5,7 +5,7 @@
 import type { FilterConfig, SiteId, MatcherOptions, WhitelistEntry } from '#types/config';
 import { ALL_SITES } from '#types/config';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const DEFAULT_MATCHER_OPTIONS: MatcherOptions = {
   caseSensitive: false,
@@ -22,6 +22,7 @@ export const DEFAULT_CONFIG: FilterConfig = {
   enabled: true,
   keywords: [],
   whitelist: [],
+  blacklist: [],
   matcherOptions: { ...DEFAULT_MATCHER_OPTIONS },
   siteEnabled: { ...DEFAULT_SITE_ENABLED },
 };
@@ -29,7 +30,17 @@ export const DEFAULT_CONFIG: FilterConfig = {
 type RawConfig = Partial<FilterConfig> & {
   siteEnabled?: Partial<Record<SiteId, boolean>>;
   whitelist?: WhitelistEntry[];
+  blacklist?: WhitelistEntry[];
 };
+
+const isWhitelistEntry = (w: unknown): w is WhitelistEntry =>
+  !!w &&
+  typeof w === 'object' &&
+  typeof (w as WhitelistEntry).value === 'string' &&
+  typeof (w as WhitelistEntry).scope === 'string';
+
+const filterEntries = (arr: unknown): WhitelistEntry[] =>
+  Array.isArray(arr) ? arr.filter(isWhitelistEntry) : [];
 
 /**
  * 从任意入参（可能是旧版本/损坏数据）恢复到合法 FilterConfig。
@@ -50,12 +61,10 @@ export function migrateConfig(raw: unknown): FilterConfig {
     keywords: Array.isArray(r.keywords)
       ? r.keywords.filter((k): k is string => typeof k === 'string')
       : [...DEFAULT_CONFIG.keywords],
-    whitelist: Array.isArray(r.whitelist)
-      ? r.whitelist.filter(
-          (w): w is WhitelistEntry =>
-            !!w && typeof w === 'object' && typeof w.value === 'string' && typeof w.scope === 'string',
-        )
-      : [...DEFAULT_CONFIG.whitelist],
+    whitelist: filterEntries(r.whitelist),
+    // WHY: 老版本数据没有 blacklist 字段时（migrate v1）必须返回空数组而不是 undefined，
+    //      否则 accessors 写入时会丢失类型保证。
+    blacklist: filterEntries(r.blacklist),
     matcherOptions: {
       caseSensitive:
         typeof r.matcherOptions?.caseSensitive === 'boolean'
@@ -75,6 +84,7 @@ function cloneDefault(): FilterConfig {
     enabled: DEFAULT_CONFIG.enabled,
     keywords: [...DEFAULT_CONFIG.keywords],
     whitelist: [...DEFAULT_CONFIG.whitelist],
+    blacklist: [...DEFAULT_CONFIG.blacklist],
     matcherOptions: { ...DEFAULT_CONFIG.matcherOptions },
     siteEnabled: { ...DEFAULT_CONFIG.siteEnabled },
   };

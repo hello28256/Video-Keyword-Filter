@@ -8,6 +8,7 @@ const baseConfig: FilterConfig = {
   enabled: true,
   keywords: ['剧透'],
   whitelist: [],
+  blacklist: [],
   matcherOptions: { caseSensitive: false, trimWhitespace: true },
   siteEnabled: { bilibili: true, douyin: true, youtube: true },
 };

@@ -4,6 +4,7 @@
  *   - 加载 config 到本地响应式状态
  *   - 编辑关键词（textarea，每行一个；自动 trim / 去重空行）
  *   - 编辑白名单（每行一个 UP 主名）
+ *   - 编辑黑名单（每行一个 UP 主名；命中即隐藏，优先于白名单）
  *   - 站点独立开关
  *   - 总开关
  */
@@ -21,22 +22,19 @@ const SITE_LABELS: Record<SiteId, string> = {
 const config = ref<FilterConfig | null>(null);
 const keywordsText = ref('');
 const whitelistText = ref('');
+const blacklistText = ref('');
 
-const keywordCount = computed(() => {
-  if (!keywordsText.value) return 0;
-  return keywordsText.value
+function countLines(text: string): number {
+  if (!text) return 0;
+  return text
     .split('\n')
     .map((k) => k.trim())
     .filter(Boolean).length;
-});
+}
 
-const whitelistCount = computed(() => {
-  if (!whitelistText.value) return 0;
-  return whitelistText.value
-    .split('\n')
-    .map((k) => k.trim())
-    .filter(Boolean).length;
-});
+const keywordCount = computed(() => countLines(keywordsText.value));
+const whitelistCount = computed(() => countLines(whitelistText.value));
+const blacklistCount = computed(() => countLines(blacklistText.value));
 
 const siteToggles = computed(() => config.value?.siteEnabled ?? null);
 
@@ -47,30 +45,36 @@ onMounted(async () => {
     .filter((w) => w.scope === 'all')
     .map((w) => w.value)
     .join('\n');
+  blacklistText.value = (config.value?.blacklist ?? [])
+    .filter((b) => b.scope === 'all')
+    .map((b) => b.value)
+    .join('\n');
 });
 
 // 任意输入变更都写回 storage（debounce 由浏览器 IO 自然合并）。
 async function flushKeywords() {
-  const list = keywordsText.value
-    .split('\n')
-    .map((k) => k.trim())
-    .filter(Boolean);
+  const list = keywordsText.value.split('\n').map((k) => k.trim()).filter(Boolean);
   // WHY: 去重，避免用户不小心复制粘贴产生重复行。
   const unique = Array.from(new Set(list));
   config.value = await updateConfig({ keywords: unique });
   keywordsText.value = unique.join('\n');
 }
 
-async function flushWhitelist() {
-  const list = whitelistText.value
-    .split('\n')
-    .map((v) => v.trim())
-    .filter(Boolean);
+async function flushEntryList(text: string, key: 'whitelist' | 'blacklist'): Promise<string> {
+  const list = text.split('\n').map((v) => v.trim()).filter(Boolean);
   const unique = Array.from(new Set(list));
   config.value = await updateConfig({
-    whitelist: unique.map((value) => ({ value, scope: 'all' as const })),
-  });
-  whitelistText.value = unique.join('\n');
+    [key]: unique.map((value) => ({ value, scope: 'all' as const })),
+  } as Partial<FilterConfig>);
+  return unique.join('\n');
+}
+
+async function flushWhitelist() {
+  whitelistText.value = flushEntryList(whitelistText.value, 'whitelist');
+}
+
+async function flushBlacklist() {
+  blacklistText.value = flushEntryList(blacklistText.value, 'blacklist');
 }
 
 async function toggleEnabled() {
@@ -91,6 +95,9 @@ watch(keywordsText, () => {
 });
 watch(whitelistText, () => {
   void flushWhitelist();
+});
+watch(blacklistText, () => {
+  void flushBlacklist();
 });
 </script>
 
@@ -127,6 +134,16 @@ watch(whitelistText, () => {
         spellcheck="false"
       ></textarea>
       <p class="hint">白名单 UP 主的视频不会被屏蔽（即使标题命中关键词）。</p>
+    </div>
+
+    <div>
+      <p class="app__section-title">黑名单 UP 主（{{ blacklistCount }}）</p>
+      <textarea
+        v-model="blacklistText"
+        placeholder="一行一个 UP 主名，不区分大小写。例如：&#10;某搬运号&#10;某营销号"
+        spellcheck="false"
+      ></textarea>
+      <p class="hint">黑名单 UP 主的视频无论标题如何都会被屏蔽（优先于白名单）。</p>
     </div>
 
     <div>

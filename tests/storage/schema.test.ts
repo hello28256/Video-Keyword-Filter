@@ -6,9 +6,10 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.enabled).toBe(true);
   });
 
-  it('关键词/白名单默认空', () => {
+  it('关键词/白名单/黑名单默认空', () => {
     expect(DEFAULT_CONFIG.keywords).toEqual([]);
     expect(DEFAULT_CONFIG.whitelist).toEqual([]);
+    expect(DEFAULT_CONFIG.blacklist).toEqual([]);
   });
 
   it('matcherOptions 默认大小写不敏感、trim 空白', () => {
@@ -59,6 +60,34 @@ describe('migrateConfig', () => {
     expect(result.enabled).toBe(false);
     expect(result.keywords).toEqual(['剧透']);
     expect(result.whitelist).toEqual([{ value: 'up主', scope: 'all' }]);
+  });
+
+  it('老版本数据（无 blacklist 字段）自动补空数组', () => {
+    const result = migrateConfig({
+      enabled: true,
+      keywords: ['剧透'],
+    });
+    expect(result.blacklist).toEqual([]);
+  });
+
+  it('已含 blacklist 字段时保留其值', () => {
+    const result = migrateConfig({
+      enabled: true,
+      blacklist: [{ value: '某UP', scope: 'all' }],
+    });
+    expect(result.blacklist).toEqual([{ value: '某UP', scope: 'all' }]);
+  });
+
+  it('blacklist 非法元素被过滤', () => {
+    const result = migrateConfig({
+      blacklist: [
+        { value: 'good', scope: 'all' },
+        null,
+        { value: 123, scope: 'all' } as never,
+        { scope: 'all' } as never,
+      ],
+    });
+    expect(result.blacklist).toEqual([{ value: 'good', scope: 'all' }]);
   });
 });
 
