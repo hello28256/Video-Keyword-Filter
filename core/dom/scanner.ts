@@ -32,18 +32,27 @@ export function createScanner(opts: ScannerOptions): Scanner {
     if (!isRescan && processed.has(el)) return;
     const card = opts.adapter.extractCard(el);
     if (!card) {
-      // WHY: 调试 —— extractCard 返回 null 说明 selector 抓到了非卡片元素，正常。
+      // WHY: 调试 —— extractCard 返回 null 说明 selector 抓到了非卡片元素。
+      // 打印前 3 个失败原因（避免控制台被刷爆）
+      const failCount = (el as Element & { __vkfFailCount?: number }).__vkfFailCount ?? 0;
+      if (failCount < 3) {
+        (el as Element & { __vkfFailCount?: number }).__vkfFailCount = failCount + 1;
+        console.log('[VKF] ⚠️ extractCard 返回 null（不是真实卡片）', {
+          tag: el.tagName,
+          class: el.className?.toString?.()?.slice(0, 80) ?? '',
+          hasTitle: !!el.querySelector('a[title]'),
+          hasVideoLink: !!el.querySelector('a[href*="/video/"]'),
+        });
+      }
       return;
     }
     processed.add(el);
 
     const decision = decide({ title: card.title, author: card.author, site: opts.adapter.id }, config);
-    // WHY: 调试辅助 —— 把决策 reason 写到 data 属性，DevTools 里能直接看到每张卡为啥隐藏/不隐藏。
     el.setAttribute('data-vkf-reason', decision.reason);
     el.setAttribute('data-vkf-author', card.author ?? '');
     el.setAttribute('data-vkf-title', card.title.slice(0, 100));
 
-    // WHY: 调试输出 —— 每一张被处理的卡片都打日志，方便定位"为什么徐云卡没被隐藏"。
     if (decision.hide) {
       console.log(
         '[VKF] 🔥 HIDE',
@@ -59,7 +68,6 @@ export function createScanner(opts: ScannerOptions): Scanner {
       opts.adapter.removeHidden(el);
       hiddenElements.delete(el);
     } else if (card.author?.includes('徐云') || card.title.includes('徐云')) {
-      // 只对徐云相关卡片打印"为什么不隐藏"
       console.log(
         '[VKF] ⚠️ 徐云相关但没隐藏',
         `reason=${decision.reason}`,

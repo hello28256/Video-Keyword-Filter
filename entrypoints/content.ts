@@ -52,13 +52,14 @@ export default defineContentScript({
     log('CSS 兜底 style injected');
 
     let currentConfig = await getConfig();
-    log('config loaded from storage:', {
+    // WHY: 详细打印 config 实际值（之前用 Object 浏览器折叠了看不清）
+    log('config loaded from storage:', JSON.stringify({
       enabled: currentConfig.enabled,
       keywords: currentConfig.keywords,
       blacklist: currentConfig.blacklist,
       whitelist: currentConfig.whitelist,
       siteEnabled: currentConfig.siteEnabled,
-    });
+    }, null, 2));
 
     const scanner = createScanner({
       adapter,
