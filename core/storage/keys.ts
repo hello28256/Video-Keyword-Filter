@@ -1,34 +1,21 @@
 /**
  * storage key 定义：用 WXT 内置 storage.defineItem 拿到类型安全 + watch 能力。
  * WHY: 集中定义 key，避免字符串字面量散落各处；fallback 用 schema 默认值保证读取永远合法。
+ *
+ * ⚠️ 注意：不用 `migrations` 选项。
+ * wxt 的 migration runner 在某些版本下会触发"wxt/storage must be loaded in a web extension
+ * environment" 错误（GitHub issue #371）。改用 `init` 钩子 + schema 默认值兼容老数据：
+ * 老 storage 缺字段时，read 拿到 undefined 字段，accessor 用默认值补。
  */
 import { storage } from '#imports';
 import { DEFAULT_CONFIG, SCHEMA_VERSION, DEFAULT_STATS, type DailyStats } from './schema';
-import { migrateConfig } from './schema';
 import type { FilterConfig } from '#types/config';
 
 /**
- * 主配置。读时走 migrateConfig 兜底（兼容老版本/损坏数据）。
+ * 主配置。读时由 accessors 用 migrateConfig 兜底（不在 wxt 层做 migration）。
  */
 export const configItem = storage.defineItem<FilterConfig>('local:config', {
   fallback: DEFAULT_CONFIG,
-  // WHY: 旧版本/手动改 storage 写入的脏数据可能在 read 时拿到非法值；
-  //      onMigration 钩子在每次读取时跑一次，把入参归一到合法 schema。
-  init: () => DEFAULT_CONFIG,
-  migrations: {
-    // v1: 老数据兜底（最早 schema）。
-    1: (raw: unknown) => migrateConfig(raw),
-    // WHY: v2 给老 config 补 blacklist 字段。已含 blacklist 的不覆盖（保持用户已有数据）。
-    2: (raw: unknown) => {
-      const cfg = migrateConfig(raw);
-      const rawBlacklist = (raw as { blacklist?: unknown } | null)?.blacklist;
-      return {
-        ...cfg,
-        blacklist: Array.isArray(rawBlacklist) ? cfg.blacklist : cfg.blacklist,
-      };
-    },
-  },
-  version: SCHEMA_VERSION,
 });
 
 /**

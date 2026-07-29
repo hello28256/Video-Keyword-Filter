@@ -3,18 +3,22 @@
  * WHY: 隔离浏览器 API 依赖，让上层逻辑可测试；同时把 watch 收成单一入口。
  */
 import { items } from './keys';
-import { DEFAULT_CONFIG } from './schema';
+import { DEFAULT_CONFIG, migrateConfig } from './schema';
 import type { FilterConfig, SiteId } from '#types/config';
 
 /**
  * 读主配置。
+ * WHY: 老版本 storage 缺字段（如 v1 没 blacklist）时，migrateConfig 自动补默认值；
+ *      不在 wxt 层做 migration（wxt 0.20 的 migration runner 在某些版本会触发
+ *      "must be loaded in a web extension environment" 错误）。
  */
 export async function getConfig(): Promise<FilterConfig> {
   try {
-    return await items.config.getValue();
+    const raw = await items.config.getValue();
+    // WHY: 即使 storage 里有数据，也走 migrateConfig 兜底（兼容老数据缺字段）。
+    return migrateConfig(raw);
   } catch {
     // WHY: storage 损坏/读失败时返回默认值而不是抛错，避免 content 脚本崩溃。
-    // 上层可观察到 enabled=false 这种"安全失败"行为。
     return DEFAULT_CONFIG;
   }
 }
