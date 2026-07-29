@@ -27,21 +27,26 @@ export function createScanner(opts: ScannerOptions): Scanner {
   const processed = new WeakSet<Element>();
   const hiddenElements = new Set<Element>();
 
+  // WHY: 调试用 —— 对每个不同的 class 组合只打一次"extractCard 失败"日志（避免 37 个相同 class 把控制台刷爆）
+  const reportedFailClasses = new Set<string>();
+  let failLogCount = 0;
+
   function processElement(el: Element, config: FilterConfig, isRescan = false): void {
-    // WHY: 首次扫描时用 WeakSet 去重；rescan 时已隐藏的元素要走"翻转"路径，不能提前 return。
     if (!isRescan && processed.has(el)) return;
     const card = opts.adapter.extractCard(el);
     if (!card) {
-      // WHY: 调试 —— extractCard 返回 null 说明 selector 抓到了非卡片元素。
-      // 打印前 3 个失败原因（避免控制台被刷爆）
-      const failCount = (el as Element & { __vkfFailCount?: number }).__vkfFailCount ?? 0;
-      if (failCount < 3) {
-        (el as Element & { __vkfFailCount?: number }).__vkfFailCount = failCount + 1;
+      const cls = el.className?.toString?.() ?? '';
+      const sig = `${el.tagName}.${cls}`.slice(0, 100);
+      if (!reportedFailClasses.has(sig) && failLogCount < 10) {
+        reportedFailClasses.add(sig);
+        failLogCount++;
         console.log('[VKF] ⚠️ extractCard 返回 null（不是真实卡片）', {
+          sig,
           tag: el.tagName,
-          class: el.className?.toString?.()?.slice(0, 80) ?? '',
+          class: cls.slice(0, 80),
           hasTitle: !!el.querySelector('a[title]'),
           hasVideoLink: !!el.querySelector('a[href*="/video/"]'),
+          sampleText: el.textContent?.trim()?.slice(0, 50),
         });
       }
       return;
@@ -64,7 +69,7 @@ export function createScanner(opts: ScannerOptions): Scanner {
       hiddenElements.add(el);
       opts.onHide?.(card);
     } else if (hiddenElements.has(el)) {
-      console.log('[VKF] 👀 UNHIDE (was hidden, now allowed)', `author="${card.author}"`);
+      console.log('[VKF] 👀 UNHIDE', `author="${card.author}"`);
       opts.adapter.removeHidden(el);
       hiddenElements.delete(el);
     } else if (card.author?.includes('徐云') || card.title.includes('徐云')) {
@@ -73,7 +78,6 @@ export function createScanner(opts: ScannerOptions): Scanner {
         `reason=${decision.reason}`,
         `title="${card.title.slice(0, 30)}"`,
         `author="${card.author}"`,
-        `expected=blacklist`,
       );
     }
   }
