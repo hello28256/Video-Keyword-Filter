@@ -36,13 +36,13 @@ export function createScanner(opts: ScannerOptions): Scanner {
     }
     processed.add(el);
 
-    // DEBUG: 第一张处理过的卡无条件打印, 证明 processElement 真的跑到
-    if (!firstSeenLogged) {
-      firstSeenLogged = true;
-      console.log('[VKF] 🔍 第一张处理过的卡', {
-        title: card.title.slice(0, 50),
+    // DEBUG: 永远打印每张卡片的 author (去重, 一张卡只打一次)
+    if (!(el as Element & { __vkfLogged?: boolean }).__vkfLogged) {
+      (el as Element & { __vkfLogged?: boolean }).__vkfLogged = true;
+      console.log('[VKF] 📋 CARD', {
+        title: card.title.slice(0, 40),
         author: card.author,
-        class: el.className?.toString?.()?.slice(0, 50),
+        class: el.className?.toString?.()?.slice(0, 40),
       });
     }
 
