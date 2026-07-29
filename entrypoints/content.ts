@@ -5,6 +5,9 @@
  *   2. 注入 CSS 兜底
  *   3. 启动 scanner + MutationObserver
  *   4. 监听 storage 变化实时 rescan
+ *
+ * ⚠️ 调试模式 (DEBUG_VKF=true): 控制台会输出每张卡片的 title/author/decision
+ *    方便诊断"为什么这张卡没被隐藏"。在 DevTools Console 里可以过滤 "VKF"。
  */
 import { defineContentScript } from '#imports';
 import { getAdapterForUrl } from '#core/adapter/registry';
@@ -14,7 +17,15 @@ import { ensureBaseStyle } from '#core/dom/injector';
 import { getConfig, watchConfig, incrementStats } from '#core/storage/accessors';
 import type { FilterConfig } from '#types/config';
 import type { ContentScriptContext } from '#imports';
-import { logger } from '#utils/logger';
+
+const DEBUG = true; // ⚠️ 调试模式：输出每张卡片的扫描结果
+const tag = (msg: string): string => `[VKF] ${msg}`;
+const log = (msg: string, ...args: unknown[]): void => {
+  if (DEBUG) console.log(tag(msg), ...args);
+};
+const warn = (msg: string, ...args: unknown[]): void => {
+  console.warn(tag(msg), ...args);
+};
 
 export default defineContentScript({
   matches: [
@@ -26,31 +37,37 @@ export default defineContentScript({
     // '*://www.youtube.com/*',
   ],
   runAt: 'document_idle',
-  // WHY: 抖音详情页的播放器在跨域 iframe 中；先打开这个开关为后续 Phase 2 做准备。
-  //      MVP 阶段仅 bilibili，不影响行为（bilibili 没有跨域 iframe）。
   allFrames: false,
   async main(ctx: ContentScriptContext) {
+    log('=== content script main() START ===', { href: window.location.href });
+
     const adapter = getAdapterForUrl(window.location.href);
     if (!adapter) {
-      logger.debug('content', 'no adapter for current URL, skip', { href: window.location.href });
+      warn('no adapter for current URL, skip', { href: window.location.href });
       return;
     }
+    log('adapter matched:', adapter.id);
 
     ensureBaseStyle(document);
+    log('CSS 兜底 style injected');
 
-    // WHY: 缓存当前 config，scanner 每次按需取；getConfig 是 async，这里闭包捕获引用即可。
     let currentConfig = await getConfig();
+    log('config loaded from storage:', {
+      enabled: currentConfig.enabled,
+      keywords: currentConfig.keywords,
+      blacklist: currentConfig.blacklist,
+      whitelist: currentConfig.whitelist,
+      siteEnabled: currentConfig.siteEnabled,
+    });
 
     const scanner = createScanner({
       adapter,
       getConfig: () => currentConfig,
-      onHide: () => {
-        // 命中时异步通知 background 累加统计；不 await 避免阻塞 scanner。
-        incrementStats(adapter.id).catch((err) =>
-          logger.error('content.incrementStats', 'failed', {
-            err: err instanceof Error ? err.message : String(err),
-          }),
-        );
+      onHide: (card) => {
+        log('🔥 HIDDEN', { title: card.title?.slice(0, 40), author: card.author, url: card.url });
+        incrementStats(adapter.id).catch(() => {
+          /* 统计失败不影响屏蔽 */
+        });
       },
     });
 
@@ -58,23 +75,33 @@ export default defineContentScript({
       target: document.body,
       debounceMs: 200,
       onMutations: () => {
-        // WHY: DOM 增量变化时只对新增子树做扫描，避免每次全量。
-        //      scanner.scanAll 默认扫全 document，对绝大多数视频站足够；性能瓶颈可后续优化。
+        // 每次 DOM 变化时打印当前 config（确认 popup 改动后 watch 是否触发）
+        log('DOM mutation → rescan', {
+          keywords: currentConfig.keywords,
+          blacklist: currentConfig.blacklist,
+        });
         scanner.scanAll(document);
       },
     });
 
     // 1) 启动时立刻全量扫一次
+    log('=== 第一次全量扫描 ===');
     scanner.scanAll(document);
     observer.start();
 
-    // 2) 监听 storage 变化 → 更新本地 config + rescan
+    // 2) 监听 storage 变化
     const unwatch = watchConfig((newConfig) => {
+      log('📦 storage watch 触发，config 更新', {
+        keywords: newConfig.keywords,
+        blacklist: newConfig.blacklist,
+        whitelist: newConfig.whitelist,
+      });
       currentConfig = newConfig;
       scanner.rescanAll();
     });
+    log('storage.watch 已注册');
 
-    // 3) 监听 background 兜底广播（应对 MV3 service worker 唤醒时漏 watch）
+    // 3) 监听 background 兜底广播
     const onMessage = (msg: unknown) => {
       if (
         msg &&
@@ -83,22 +110,21 @@ export default defineContentScript({
         (msg as { type: string }).type === 'CONFIG_UPDATED' &&
         'config' in msg
       ) {
+        log('📨 收到 background CONFIG_UPDATED 消息');
         currentConfig = (msg as { config: FilterConfig }).config;
         scanner.rescanAll();
       }
     };
     browser.runtime.onMessage.addListener(onMessage);
 
-    // WHY: ctx.onInvalidated 在 content 脚本被卸载时触发（HMR、tab 关闭、扩展更新）。
-    //      必须在此清理 observer / 取消 watch，否则会内存泄漏 + 触发已死上下文。
     ctx.onInvalidated(() => {
       observer.stop();
       unwatch();
       browser.runtime.onMessage.removeListener(onMessage);
       scanner.unhideAll();
-      logger.debug('content', 'invalidated, cleaned up');
+      log('content script invalidated, cleaned up');
     });
 
-    logger.info('content', 'content script initialized', { site: adapter.id });
+    log('=== content script main() END ===', { site: adapter.id });
   },
 });

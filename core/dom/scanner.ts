@@ -31,21 +31,42 @@ export function createScanner(opts: ScannerOptions): Scanner {
     // WHY: 首次扫描时用 WeakSet 去重；rescan 时已隐藏的元素要走"翻转"路径，不能提前 return。
     if (!isRescan && processed.has(el)) return;
     const card = opts.adapter.extractCard(el);
-    if (!card) return;
+    if (!card) {
+      // WHY: 调试 —— extractCard 返回 null 说明 selector 抓到了非卡片元素，正常。
+      return;
+    }
     processed.add(el);
 
     const decision = decide({ title: card.title, author: card.author, site: opts.adapter.id }, config);
     // WHY: 调试辅助 —— 把决策 reason 写到 data 属性，DevTools 里能直接看到每张卡为啥隐藏/不隐藏。
     el.setAttribute('data-vkf-reason', decision.reason);
+    el.setAttribute('data-vkf-author', card.author ?? '');
+    el.setAttribute('data-vkf-title', card.title.slice(0, 100));
+
+    // WHY: 调试输出 —— 每一张被处理的卡片都打日志，方便定位"为什么徐云卡没被隐藏"。
     if (decision.hide) {
+      console.log(
+        '[VKF] 🔥 HIDE',
+        `reason=${decision.reason}`,
+        `title="${card.title.slice(0, 30)}"`,
+        `author="${card.author}"`,
+      );
       opts.adapter.applyHidden(el);
       hiddenElements.add(el);
       opts.onHide?.(card);
-      logger.debug('scanner', 'card hidden', { title: card.title, reason: decision.reason });
     } else if (hiddenElements.has(el)) {
-      // 已隐藏过但新配置允许显示 → 恢复
+      console.log('[VKF] 👀 UNHIDE (was hidden, now allowed)', `author="${card.author}"`);
       opts.adapter.removeHidden(el);
       hiddenElements.delete(el);
+    } else if (card.author?.includes('徐云') || card.title.includes('徐云')) {
+      // 只对徐云相关卡片打印"为什么不隐藏"
+      console.log(
+        '[VKF] ⚠️ 徐云相关但没隐藏',
+        `reason=${decision.reason}`,
+        `title="${card.title.slice(0, 30)}"`,
+        `author="${card.author}"`,
+        `expected=blacklist`,
+      );
     }
   }
 
