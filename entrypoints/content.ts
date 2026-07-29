@@ -90,6 +90,20 @@ export default defineContentScript({
     scanner.scanAll(document);
     observer.start();
 
+    // 2.5) 兜底：定时全量扫描（应对 B 站虚拟列表懒加载，scroll 不会触发 MutationObserver 时漏卡）
+    const intervalId = setInterval(() => {
+      scanner.scanAll(document);
+    }, 2000);
+    log('兜底定时扫描已启动（每 2s）');
+
+    // 2.6) 兜底：监听 window 滚动，触发扫描
+    const onScroll = () => {
+      // scroll 事件高频, 但 scanner 内部 WeakSet 去重, 性能可控
+      scanner.scanAll(document);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    log('scroll 监听已注册');
+
     // 2) 监听 storage 变化
     const unwatch = watchConfig((newConfig) => {
       log('📦 storage watch 触发，config 更新', {
@@ -122,6 +136,8 @@ export default defineContentScript({
       observer.stop();
       unwatch();
       browser.runtime.onMessage.removeListener(onMessage);
+      clearInterval(intervalId);
+      window.removeEventListener('scroll', onScroll);
       scanner.unhideAll();
       log('content script invalidated, cleaned up');
     });
