@@ -67,12 +67,24 @@ export function createScanner(opts: ScannerOptions): Scanner {
     }
   }
 
+  let scanCount = 0;
   return {
     scanAll(root: ParentNode = document) {
       try {
         const config = opts.getConfig();
         const cards = opts.adapter.findCards(root);
-        // WHY: 调试 —— 每次扫描打印找到的卡片数
+        scanCount++;
+        // WHY: 调试 —— 第一次扫描打印所有卡片的 class + 是否有徐云
+        if (scanCount === 1) {
+          const classes = new Set<string>();
+          let hasXuyun = false;
+          for (const c of cards) {
+            classes.add(c.tagName + '.' + (c.className?.toString?.() ?? '').slice(0, 50));
+            if (c.textContent.includes('徐云')) hasXuyun = true;
+          }
+          console.log('[VKF] scanAll #1 卡片 class 集合:', Array.from(classes).slice(0, 10));
+          console.log('[VKF] scanAll #1 含徐云?', hasXuyun);
+        }
         console.log('[VKF] scanAll: 找到', cards.length, '张卡片');
         for (const el of cards) {
           processElement(el, config);
