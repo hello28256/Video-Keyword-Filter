@@ -83,6 +83,8 @@ export function createScanner(opts: ScannerOptions): Scanner {
       try {
         const config = opts.getConfig();
         const cards = opts.adapter.findCards(root);
+        // WHY: 调试 —— 每次扫描打印找到的卡片数
+        console.log('[VKF] scanAll: 找到', cards.length, '张卡片');
         for (const el of cards) {
           processElement(el, config);
         }
@@ -94,17 +96,13 @@ export function createScanner(opts: ScannerOptions): Scanner {
     },
 
     rescanAll() {
-      // WHY: 重新走全量扫描，让"配置变更 → 卡片显隐翻转"在一次调用里完成。
-      // processed 用 WeakSet，无需重置；hiddenElements 在 processElement 中按需更新。
-      // isRescan=true 让已隐藏元素也能重新评估 → 触发"恢复显示"分支。
       try {
         const config = opts.getConfig();
         const all = opts.adapter.findCards(document);
+        console.log('[VKF] rescanAll: 找到', all.length, '张卡片');
         for (const el of all) {
           processElement(el, config, true);
         }
-        // 处理已被 DOM 移除的 hidden 元素（不再遍历，但 hidden 集合里的引用留着无意义）
-        // 弱引用 GC 会自动清理，无需手动 delete。
       } catch (err) {
         logger.error('scanner.rescanAll', 'rescan failed', {
           err: err instanceof Error ? err.message : String(err),
