@@ -72,6 +72,44 @@ describe('bilibiliAdapter.findCards (详情页 fixture)', () => {
   });
 });
 
+describe('bilibiliAdapter.findCards (搜索页 fixture)', () => {
+  let doc: Document;
+
+  beforeEach(() => {
+    doc = loadFixture('bilibili-search.html');
+  });
+
+  it('找到 3 张卡片（含 div.video-card 和 li.video-item）', () => {
+    const cards = bilibiliAdapter.findCards(doc);
+    expect(cards).toHaveLength(3);
+  });
+
+  it('不把 bili-video-card__info BEM 子元素当成卡片', () => {
+    // 关键回归测试：之前 closest() 会把内部子元素误当卡片
+    const cards = bilibiliAdapter.findCards(doc);
+    for (const card of cards) {
+      expect(card.querySelector('a[href*="/video/"]')).not.toBeNull();
+    }
+  });
+
+  it('抽取 BEM 结构的标题和作者', () => {
+    const cards = bilibiliAdapter.findCards(doc);
+    // 第一张卡：搜索页 BEM 结构
+    const first = bilibiliAdapter.extractCard(cards[0]!);
+    expect(first).not.toBeNull();
+    expect(first?.title).toBe('骑行穿越腾格里沙漠');
+    expect(first?.author).toBe('徐云流浪中国'); // 不应含 "· 07-27"
+    expect(first?.url).toContain('BV1a1');
+  });
+
+  it('抽取 li.video-item 结构', () => {
+    const cards = bilibiliAdapter.findCards(doc);
+    const second = bilibiliAdapter.extractCard(cards[1]!);
+    expect(second?.title).toBe('【剧透】结局分析');
+    expect(second?.author).toBe('另一UP');
+  });
+});
+
 describe('bilibiliAdapter.applyHidden / removeHidden', () => {
   it('applyHidden 设置 data-vkf-hidden 属性', () => {
     const doc = loadFixture('bilibili-home.html');

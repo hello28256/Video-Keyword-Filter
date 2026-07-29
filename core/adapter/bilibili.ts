@@ -6,13 +6,18 @@
  *   - 视频详情页右侧推荐（/video/BVxxxx）
  *
  * 选择器策略：
- *   - class 用通配符 [class*="video-card"] / [class*="video-item"]，避免 A/B 测试导致的 hash 化。
+ *   - 卡片用「不带 -- 子修饰的 video-card/video-item」做最外层容器。
+ *   - 标题/作者用 BEM 子元素（`--title` / `--author` / `--owner`）。
  *   - 优先用 data-bvid / data-up-name 这些稳定 data 属性。
  *   - 标题从 a[title] 读取（attribute 通常是完整标题，不被 CSS 截断）。
  */
 import type { SiteAdapter, VideoCard } from './types';
 
-const CARD_SELECTOR = '[class*="video-card"], [class*="video-item"]';
+// 匹配"最外层卡片"的 selector。
+// WHY: 排除 `bili-video-card__info` / `bili-video-card__info--owner` 等 BEM 子元素 ——
+//      它们都含 "video-card" 字符串，但只是卡片内部子节点。
+//      用 class 完整词匹配 + 必须含 a[href*="/video/"] 双重过滤。
+const CARD_CONTAINER_SELECTOR = 'div[class*="video-card"]:not([class*="__"]), li[class*="video-item"]';
 
 function findTitleEl(card: Element): Element | null {
   // WHY: 优先用 a[title]，避免被 CSS text-overflow 截断的 innerText 漏命中。
@@ -23,9 +28,13 @@ function findTitleEl(card: Element): Element | null {
 }
 
 function findAuthorEl(card: Element): Element | null {
+  // 优先级：B 站 BEM 子元素 > data 属性 > user-name 类（搜索页用）
   return (
+    card.querySelector('[class*="__info--author"]') ??
+    card.querySelector('[class*="__info--owner"]') ??
     card.querySelector('[data-up-name]') ??
     card.querySelector('[class*="up-name"]') ??
+    card.querySelector('[class*="user-name"]') ??
     card.querySelector('[class*="author"]') ??
     card.querySelector('[data-mid]')
   );
@@ -36,13 +45,23 @@ function findHrefEl(card: Element): HTMLAnchorElement | null {
 }
 
 function readAuthor(card: Element): string | null {
+  // WHY: 优先取 data-up-name（最稳定）；其次取 a 元素的精确文本；
+  //      最后取 textContent 并去除 "· 07-24" 等后缀。
+  const dataUp = card.getAttribute('data-up-name');
+  if (dataUp) return dataUp.trim();
+
   const el = findAuthorEl(card);
   if (!el) return null;
-  // WHY: data-up-name 是 B 站直接挂在元素上的稳定属性（无空格 / 大小写问题）。
-  const fromData = card.getAttribute('data-up-name') ?? el.getAttribute('data-up-name');
+  const fromData = el.getAttribute('data-up-name');
   if (fromData) return fromData.trim();
+
+  // 优先用 a 元素的 textContent（不含日期后缀），其次用 span
   const text = (el.textContent ?? '').trim();
-  return text || null;
+  if (!text) return null;
+  // WHY: B 站 BEM 元素 textContent 常含 "徐云流浪中国 · 07-24"，
+  //      取 · 之前的部分作为 UP 主名。
+  const authorOnly = text.split('·')[0]?.trim() ?? text;
+  return authorOnly || null;
 }
 
 function readTitle(card: Element): string {
@@ -68,17 +87,16 @@ export const bilibiliAdapter: SiteAdapter = {
   },
 
   findCards(root: ParentNode): Element[] {
-    const nodes = Array.from(root.querySelectorAll(CARD_SELECTOR));
-    // WHY: 详情页里 .bili-video-card__info--tit 这种 title 元素本身也会匹配 CARD_SELECTOR，
-    //      但它们是 card 内部的子节点，向上找一次最近祖先后再去重，确保每张卡只入列一次。
+    // WHY: 搜索页和首页的卡片根都是 div.video-card (BEM 不带 __ 子元素) 或 li.video-item。
+    //      直接用容器 selector 抓，不会误抓卡片内部子节点。
+    const cards = Array.from(root.querySelectorAll(CARD_CONTAINER_SELECTOR));
+    // 去重 + 校验必须是真正的卡片（内部有 video 链接）
     const seen = new Set<Element>();
     const result: Element[] = [];
-    for (const node of nodes) {
-      const card = node.closest(CARD_SELECTOR) ?? node;
+    for (const card of cards) {
       if (seen.has(card)) continue;
       seen.add(card);
-      // WHY: 要求卡片内部能找到 a[href*="/video/"] 或 a[title]，排除纯装饰节点。
-      if (!card.querySelector('a[href*="/video/"], a[title]')) continue;
+      if (!card.querySelector('a[href*="/video/"]')) continue;
       result.push(card);
     }
     return result;

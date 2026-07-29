@@ -70,11 +70,13 @@ async function flushEntryList(text: string, key: 'whitelist' | 'blacklist'): Pro
 }
 
 async function flushWhitelist() {
-  whitelistText.value = flushEntryList(whitelistText.value, 'whitelist');
+  // WHY: 同 flushBlacklist，必须 await。
+  whitelistText.value = await flushEntryList(whitelistText.value, 'whitelist');
 }
 
 async function flushBlacklist() {
-  blacklistText.value = flushEntryList(blacklistText.value, 'blacklist');
+  // WHY: 必须 await，否则赋给 blacklistText.value 的是 Promise，Vue 模板里会渲染成 "[object Promise]"。
+  blacklistText.value = await flushEntryList(blacklistText.value, 'blacklist');
 }
 
 async function toggleEnabled() {

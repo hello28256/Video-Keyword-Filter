@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>B 站搜索页 fixture</title>
+</head>
+<body>
+  <div class="search-layout">
+    <!-- 搜索结果列表 -->
+    <div class="video-list">
+      <!-- 卡片 1：搜索页"卡"结构（含 bili-video-card__info BEM 子元素） -->
+      <div class="bili-video-card">
+        <div class="bili-video-card__info bili-video-card__info--right">
+          <a class="bili-video-card__info--tit" href="//www.bilibili.com/video/BV1a1" title="骑行穿越腾格里沙漠">
+            骑行穿越腾格里沙漠
+          </a>
+          <a class="bili-video-card__info--owner" href="//space.bilibili.com/697166795">
+            徐云流浪中国 · 07-27
+          </a>
+          <span class="bili-video-card__info--author">徐云流浪中国</span>
+          <span class="bili-video-card__info--date">· 07-27</span>
+        </div>
+      </div>
+
+      <!-- 卡片 2：li.video-item（旧搜索页布局） -->
+      <li class="video-item">
+        <a class="title" href="//www.bilibili.com/video/BV1b2" title="【剧透】结局分析">【剧透】结局分析</a>
+        <a class="up-name" data-mid="100" href="//space.bilibili.com/100">另一UP</a>
+      </li>
+
+      <!-- 卡片 3：白名单 UP 主 -->
+      <div class="bili-video-card">
+        <div class="bili-video-card__info">
+          <a class="bili-video-card__info--tit" href="//www.bilibili.com/video/BV1c3" title="深度剧透解析">深度剧透解析</a>
+          <a class="bili-video-card__info--owner" href="//space.bilibili.com/200">我的最爱 · 07-26</a>
+          <span class="bili-video-card__info--author">我的最爱</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
