@@ -61,6 +61,10 @@ function readAuthor(card: Element): string | null {
   // WHY: B 站 BEM 元素 textContent 常含 "徐云流浪中国 · 07-24"，
   //      取 · 之前的部分作为 UP 主名。
   const authorOnly = text.split('·')[0]?.trim() ?? text;
+  // DEBUG: 把 author 字符串的 charCode dump 出来，方便定位字符不匹配
+  if (authorOnly.includes('徐云') || authorOnly.includes('流浪')) {
+    console.log('[VKF] author char dump:', Array.from(authorOnly).map((c) => `${c}(${c.charCodeAt(0)})`).join(' '));
+  }
   return authorOnly || null;
 }
 
