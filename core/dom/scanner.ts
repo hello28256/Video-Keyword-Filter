@@ -27,6 +27,7 @@ export function createScanner(opts: ScannerOptions): Scanner {
   const processed = new WeakSet<Element>();
   const hiddenElements = new Set<Element>();
 
+  let firstSeenLogged = false;
   function processElement(el: Element, config: FilterConfig, isRescan = false): void {
     if (!isRescan && processed.has(el)) return;
     const card = opts.adapter.extractCard(el);
@@ -34,6 +35,16 @@ export function createScanner(opts: ScannerOptions): Scanner {
       return;
     }
     processed.add(el);
+
+    // DEBUG: 第一张处理过的卡无条件打印, 证明 processElement 真的跑到
+    if (!firstSeenLogged) {
+      firstSeenLogged = true;
+      console.log('[VKF] 🔍 第一张处理过的卡', {
+        title: card.title.slice(0, 50),
+        author: card.author,
+        class: el.className?.toString?.()?.slice(0, 50),
+      });
+    }
 
     const decision = decide({ title: card.title, author: card.author, site: opts.adapter.id }, config);
     el.setAttribute('data-vkf-reason', decision.reason);
