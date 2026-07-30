@@ -96,13 +96,18 @@ export default defineContentScript({
     }, 2000);
     log('兜底定时扫描已启动（每 2s）');
 
-    // 2.6) 兜底：监听 window 滚动，触发扫描
+    // 2.6) 兜底：监听 window 滚动，触发扫描 (用 rAF 节流)
+    let scrollScheduled = false;
     const onScroll = () => {
-      // scroll 事件高频, 但 scanner 内部 WeakSet 去重, 性能可控
-      scanner.scanAll(document);
+      if (scrollScheduled) return;
+      scrollScheduled = true;
+      requestAnimationFrame(() => {
+        scrollScheduled = false;
+        scanner.scanAll(document);
+      });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    log('scroll 监听已注册');
+    log('scroll 监听已注册 (rAF 节流)');
 
     // 2) 监听 storage 变化
     const unwatch = watchConfig((newConfig) => {
